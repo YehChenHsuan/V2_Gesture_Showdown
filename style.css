@@ -398,16 +398,17 @@ body {
 }
 
 .question-img-frame {
-  width: 58px;
-  height: 58px;
-  border-radius: 12px;
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 2px solid var(--primary-light);
+  border: 3px solid var(--primary-light);
   background: #0f172a;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 18px rgba(56, 189, 248, 0.35);
 }
 
 .question-img-frame img {

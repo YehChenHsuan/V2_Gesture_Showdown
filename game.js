@@ -1,7 +1,7 @@
 /**
  * V2 Gesture Duo: Team Challenge (手勢默契大作戰 - 雙人合作闖關)
  * 遊戲主邏輯模組 (GameApp)
- * 支援三大練習模式、極速碼錶、TTS 發音、蓄力穩定檢驗與排行榜
+ * 支援三大練習模式、極速碼錶、TTS 發音、高靈敏度手勢判定與排行榜
  */
 
 class GameApp {
@@ -47,8 +47,8 @@ class GameApp {
     this.elapsedMilliseconds = 0;
     this.isGameActive = false;
 
-    // 手勢蓄力與穩定檢驗 (Dwell time: 350ms)
-    this.dwellRequiredMs = 350;
+    // 手勢蓄力與穩定檢驗 (Dwell time: 180ms，敏捷且防抖)
+    this.dwellRequiredMs = 180;
     this.dwellStartTime = null;
     this.isDwellLocked = false;
 
@@ -60,7 +60,7 @@ class GameApp {
     this.useManualInput = false;
 
     // 實例化音效與語音
-    this.sound = new GameSound();
+    this.sound = window.soundSystem || new GameSound();
     this.gestureEngine = null;
 
     // DOM 元素快取
@@ -84,12 +84,12 @@ class GameApp {
    */
   generateAfterSchoolQuestions() {
     const actions = [
-      { text: 'go home', zh: '回家', img: 'assets/V2_flashcards_images/go home.jpg' },
-      { text: 'do homework', zh: '寫功課', img: 'assets/V2_flashcards_images/do homework.jpg' },
-      { text: 'eat dinner', zh: '吃晚餐', img: 'assets/V2_flashcards_images/eat dinner.jpg' },
-      { text: 'take a bath', zh: '洗澡', img: 'assets/V2_flashcards_images/take a bath.jpg' },
-      { text: 'go to bed', zh: '上床睡覺', img: 'assets/V2_flashcards_images/go to bed.jpg' },
-      { text: 'go to sleep', zh: '去睡覺', img: 'assets/V2_flashcards_images/go to sleep.jpg' }
+      { text: 'go home', zh: '回家', img: 'V2_flashcards_images/V2_home.webp' },
+      { text: 'do homework', zh: '寫功課', img: 'V2_flashcards_images/V2_homework.webp' },
+      { text: 'eat dinner', zh: '吃晚餐', img: 'V2_flashcards_images/V2_dinner.webp' },
+      { text: 'take a bath', zh: '洗澡', img: 'V2_flashcards_images/V2_bath.webp' },
+      { text: 'go to bed', zh: '上床睡覺', img: 'V2_flashcards_images/V2_bed.webp' },
+      { text: 'go to sleep', zh: '去睡覺', img: 'V2_flashcards_images/V2_sleep.webp' }
     ];
 
     const pronouns = [
@@ -107,7 +107,7 @@ class GameApp {
           actionText: a.text,
           actionZh: a.zh,
           img: a.img,
-          targetGesture: p.target, // 'LEFT_OPEN', 'RIGHT_OPEN', 'BOTH_OPEN'
+          targetGesture: p.target,
           ruleHint: p.hint
         });
       });
@@ -123,65 +123,65 @@ class GameApp {
       {
         sentence: 'wake up',
         actionZh: '起床',
-        img: 'assets/V2_flashcards_images/wake up.jpg',
-        targetGesture: 'LEFT_OPEN', // Day = Left Open, Right Fist
-        ruleHint: 'wake up 是早晨作息 ➔ Day (左邊張手 🖐️，右邊握拳 ✊)'
+        img: 'V2_flashcards_images/V2_wake up.webp',
+        targetGesture: 'LEFT_OPEN', // Day = Left Open, Right not open
+        ruleHint: 'wake up 是早晨作息 ➔ Day (左邊張手 🖐️)'
       },
       {
         sentence: 'eat breakfast',
         actionZh: '吃早餐',
-        img: 'assets/V2_flashcards_images/eat breakfast.jpg',
+        img: 'V2_flashcards_images/V2_breakfast.webp',
         targetGesture: 'LEFT_OPEN', // Day
-        ruleHint: 'eat breakfast 是白天的作息 ➔ Day (左邊張手 🖐️，右邊握拳 ✊)'
+        ruleHint: 'eat breakfast 是白天的作息 ➔ Day (左邊張手 🖐️)'
       },
       {
         sentence: 'go to school',
         actionZh: '上學',
-        img: 'assets/V2_flashcards_images/go to school.jpg',
+        img: 'V2_flashcards_images/V2_school.webp',
         targetGesture: 'LEFT_OPEN', // Day
-        ruleHint: 'go to school 是白天的行程 ➔ Day (左邊張手 🖐️，右邊握拳 ✊)'
+        ruleHint: 'go to school 是白天的行程 ➔ Day (左邊張手 🖐️)'
       },
       {
         sentence: 'eat lunch',
         actionZh: '吃午餐',
-        img: 'assets/V2_flashcards_images/eat lunch.jpg',
+        img: 'V2_flashcards_images/V2_eat.webp',
         targetGesture: 'LEFT_OPEN', // Day
-        ruleHint: 'eat lunch 是中午時光 ➔ Day (左邊張手 🖐️，右邊握拳 ✊)'
+        ruleHint: 'eat lunch 是中午時光 ➔ Day (左邊張手 🖐️)'
       },
       {
         sentence: 'do homework',
         actionZh: '寫功課',
-        img: 'assets/V2_flashcards_images/do homework.jpg',
-        targetGesture: 'RIGHT_OPEN', // Night = Left Fist, Right Open
-        ruleHint: 'do homework 放學課後作息 ➔ Night (左邊握拳 ✊，右邊張手 🖐️)'
+        img: 'V2_flashcards_images/V2_homework.webp',
+        targetGesture: 'RIGHT_OPEN', // Night = Right Open, Left not open
+        ruleHint: 'do homework 放學課後作息 ➔ Night (右邊張手 🖐️)'
       },
       {
         sentence: 'eat dinner',
         actionZh: '吃晚餐',
-        img: 'assets/V2_flashcards_images/eat dinner.jpg',
+        img: 'V2_flashcards_images/V2_dinner.webp',
         targetGesture: 'RIGHT_OPEN', // Night
-        ruleHint: 'eat dinner 是晚上晚餐 ➔ Night (左邊握拳 ✊，右邊張手 🖐️)'
+        ruleHint: 'eat dinner 是晚上晚餐 ➔ Night (右邊張手 🖐️)'
       },
       {
         sentence: 'take a bath',
         actionZh: '洗澡洗香香',
-        img: 'assets/V2_flashcards_images/take a bath.jpg',
+        img: 'V2_flashcards_images/V2_bath.webp',
         targetGesture: 'RIGHT_OPEN', // Night
-        ruleHint: 'take a bath 睡前沐浴 ➔ Night (左邊握拳 ✊，右邊張手 🖐️)'
+        ruleHint: 'take a bath 睡前沐浴 ➔ Night (右邊張手 🖐️)'
       },
       {
         sentence: 'go to bed',
         actionZh: '上床就寢',
-        img: 'assets/V2_flashcards_images/go to bed.jpg',
+        img: 'V2_flashcards_images/V2_bed.webp',
         targetGesture: 'RIGHT_OPEN', // Night
-        ruleHint: 'go to bed 夜晚就寢 ➔ Night (左邊握拳 ✊，右邊張手 🖐️)'
+        ruleHint: 'go to bed 夜晚就寢 ➔ Night (右邊張手 🖐️)'
       },
       {
         sentence: 'go to sleep',
         actionZh: '進入甜美夢鄉',
-        img: 'assets/V2_flashcards_images/go to sleep.jpg',
+        img: 'V2_flashcards_images/V2_sleep.webp',
         targetGesture: 'RIGHT_OPEN', // Night
-        ruleHint: 'go to sleep 夜晚睡覺 ➔ Night (左邊握拳 ✊，右邊張手 🖐️)'
+        ruleHint: 'go to sleep 夜晚睡覺 ➔ Night (右邊張手 🖐️)'
       }
     ];
   }
@@ -205,6 +205,11 @@ class GameApp {
       btnOpenLeaderboard: document.getElementById('btn-open-leaderboard'),
       btnOpenCustomEditor: document.getElementById('btn-open-custom-editor'),
 
+      // 遊戲舞台與左右區域標籤
+      stageZoneHeader: document.querySelector('.stage-zone-header'),
+      labelLeft: document.getElementById('zone-label-left'),
+      labelRight: document.getElementById('zone-label-right'),
+
       // 遊戲中頂部題目橫幅
       questionSentence: document.getElementById('question-sentence'),
       questionZh: document.getElementById('question-zh'),
@@ -215,9 +220,7 @@ class GameApp {
       progressBadge: document.getElementById('progress-badge'),
       ruleHintText: document.getElementById('rule-hint-text'),
 
-      // 遊戲中左右半區標籤與狀態
-      labelLeft: document.getElementById('zone-label-left'),
-      labelRight: document.getElementById('zone-label-right'),
+      // 手勢狀態
       statusBadgeLeft: document.getElementById('status-badge-left'),
       statusBadgeRight: document.getElementById('status-badge-right'),
       btnManualLeft: document.getElementById('btn-manual-left'),
@@ -272,7 +275,7 @@ class GameApp {
         console.warn('[GameApp] 鏡頭無法啟用，自動切換至鍵盤/點擊備援模式:', err);
         this.useManualInput = true;
         if (this.dom.cameraStatusText) {
-          this.dom.cameraStatusText.textContent = '⚠️ 未偵測到鏡頭：已啟用 A/D 鍵與點擊備援操作';
+          this.dom.cameraStatusText.textContent = '⚠️ 點擊左/右畫面或按 A/D 鍵進行答題';
           this.dom.cameraStatusText.style.color = '#f59e0b';
         }
       }
@@ -367,14 +370,41 @@ class GameApp {
       this.resetCustomQuestions();
     });
 
-    // 點擊備援手勢按鈕 (無相機時點擊切換)
+    // 點擊左區大標籤或畫布左側
+    if (this.dom.labelLeft) {
+      this.dom.labelLeft.style.pointerEvents = 'auto';
+      this.dom.labelLeft.style.cursor = 'pointer';
+      this.dom.labelLeft.addEventListener('click', () => {
+        this.triggerManualSide('left');
+      });
+    }
+
+    // 點擊右區大標籤或畫布右側
+    if (this.dom.labelRight) {
+      this.dom.labelRight.style.pointerEvents = 'auto';
+      this.dom.labelRight.style.cursor = 'pointer';
+      this.dom.labelRight.addEventListener('click', () => {
+        this.triggerManualSide('right');
+      });
+    }
+
+    // 點擊備援手勢按鈕
     this.dom.btnManualLeft.addEventListener('click', () => {
-      this.sound.playClick();
-      this.toggleManualGesture('left');
+      this.triggerManualSide('left');
     });
     this.dom.btnManualRight.addEventListener('click', () => {
-      this.sound.playClick();
-      this.toggleManualGesture('right');
+      this.triggerManualSide('right');
+    });
+
+    // 畫布點擊判定 (點左半區選左，點右半區選右)
+    this.dom.gestureCanvas.addEventListener('click', (e) => {
+      const rect = this.dom.gestureCanvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      if (clickX < rect.width / 2) {
+        this.triggerManualSide('left');
+      } else {
+        this.triggerManualSide('right');
+      }
     });
 
     // 鍵盤無障礙支援
@@ -383,21 +413,21 @@ class GameApp {
       const key = e.key.toLowerCase();
 
       if (key === 'a') {
-        this.toggleManualGesture('left');
+        this.triggerManualSide('left');
       } else if (key === 'd') {
-        this.toggleManualGesture('right');
+        this.triggerManualSide('right');
       } else if (key === 'w') {
         // 雙張手
+        this.useManualInput = true;
         this.manualOverride.left = 'OPEN';
         this.manualOverride.right = 'OPEN';
-        this.useManualInput = true;
         this.updateManualUi();
         this.checkMatchCondition(this.manualOverride.left, this.manualOverride.right);
       } else if (key === 's') {
         // 雙握拳
+        this.useManualInput = true;
         this.manualOverride.left = 'FIST';
         this.manualOverride.right = 'FIST';
-        this.useManualInput = true;
         this.updateManualUi();
         this.checkMatchCondition(this.manualOverride.left, this.manualOverride.right);
       } else if (e.code === 'Space') {
@@ -408,11 +438,17 @@ class GameApp {
   }
 
   /**
-   * 手動切換備援手勢 (FIST ⇄ OPEN)
+   * 手動選定單側 (快速備援點擊)
    */
-  toggleManualGesture(side) {
+  triggerManualSide(side) {
     this.useManualInput = true;
-    this.manualOverride[side] = this.manualOverride[side] === 'OPEN' ? 'FIST' : 'OPEN';
+    if (side === 'left') {
+      this.manualOverride.left = 'OPEN';
+      this.manualOverride.right = 'FIST';
+    } else {
+      this.manualOverride.left = 'FIST';
+      this.manualOverride.right = 'OPEN';
+    }
     this.updateManualUi();
     this.checkMatchCondition(this.manualOverride.left, this.manualOverride.right);
   }
@@ -427,6 +463,8 @@ class GameApp {
     this.dom.btnManualRight.textContent = `右區: ${rightText} (D)`;
     this.dom.statusBadgeLeft.textContent = leftText;
     this.dom.statusBadgeRight.textContent = rightText;
+    this.dom.statusBadgeLeft.className = `status-badge ${this.manualOverride.left === 'OPEN' ? 'open' : 'fist'}`;
+    this.dom.statusBadgeRight.className = `status-badge ${this.manualOverride.right === 'OPEN' ? 'open' : 'fist'}`;
   }
 
   /**
@@ -491,6 +529,7 @@ class GameApp {
     this.isGameActive = true;
     this.isDwellLocked = false;
     this.dwellStartTime = null;
+    this.useManualInput = false;
 
     // 設定左右半區標籤文字
     this.dom.labelLeft.textContent = mode.leftLabel;
@@ -530,15 +569,23 @@ class GameApp {
     this.dom.questionZh.textContent = this.currentQuestion.actionZh ? `(${this.currentQuestion.actionZh})` : '';
     this.dom.ruleHintText.textContent = this.currentQuestion.ruleHint || '';
 
-    // 圖片展示
+    // 圖片展示處理
+    const imgEl = this.dom.questionImage;
+    const placeholder = this.dom.questionImagePlaceholder;
+
     if (this.currentQuestion.img) {
-      this.dom.questionImage.src = this.currentQuestion.img;
-      this.dom.questionImage.style.display = 'block';
-      this.dom.questionImagePlaceholder.style.display = 'none';
+      imgEl.style.display = 'block';
+      placeholder.style.display = 'none';
+      imgEl.onerror = () => {
+        imgEl.style.display = 'none';
+        placeholder.style.display = 'flex';
+        placeholder.textContent = this.currentQuestion.actionZh || 'ESL';
+      };
+      imgEl.src = encodeURI(this.currentQuestion.img);
     } else {
-      this.dom.questionImage.style.display = 'none';
-      this.dom.questionImagePlaceholder.style.display = 'flex';
-      this.dom.questionImagePlaceholder.textContent = this.currentQuestion.actionZh || 'ESL Challenge';
+      imgEl.style.display = 'none';
+      placeholder.style.display = 'flex';
+      placeholder.textContent = this.currentQuestion.actionZh || 'ESL';
     }
 
     // 自動以瀏覽器美語 TTS 發音
@@ -622,6 +669,10 @@ class GameApp {
 
   /**
    * 核心判斷：手勢組合是否符合題目答案
+   * 採用容錯與直覺判斷：
+   * 1. LEFT_OPEN (如 Day / I / 左選項)：只要左區比出 OPEN，且右區沒有比出 OPEN (右區是 FIST 或未出手)，即符合！
+   * 2. RIGHT_OPEN (如 Night / You / 右選項)：只要右區比出 OPEN，且左區沒有比出 OPEN (左區是 FIST 或未出手)，即符合！
+   * 3. BOTH_OPEN (如 We / 雙人默契)：左區與右區皆比出 OPEN！
    */
   checkMatchCondition(leftGesture, rightGesture) {
     if (!this.currentQuestion || this.isDwellLocked) return;
@@ -629,15 +680,14 @@ class GameApp {
     const target = this.currentQuestion.targetGesture;
     let isMatched = false;
 
-    // 比對規則：
-    // LEFT_OPEN: 左邊張手 🖐️，右邊握拳 ✊
-    // RIGHT_OPEN: 右邊張手 🖐️，左邊握拳 ✊
-    // BOTH_OPEN: 兩邊皆張手 🖐️ + 🖐️
     if (target === 'LEFT_OPEN') {
-      isMatched = (leftGesture === 'OPEN' && rightGesture === 'FIST');
+      // 左邊張手，右邊不是張手（握拳或沒出手皆可）
+      isMatched = (leftGesture === 'OPEN' && rightGesture !== 'OPEN');
     } else if (target === 'RIGHT_OPEN') {
-      isMatched = (leftGesture === 'FIST' && rightGesture === 'OPEN');
+      // 右邊張手，左邊不是張手（握拳或沒出手皆可）
+      isMatched = (rightGesture === 'OPEN' && leftGesture !== 'OPEN');
     } else if (target === 'BOTH_OPEN') {
+      // 雙人皆張手
       isMatched = (leftGesture === 'OPEN' && rightGesture === 'OPEN');
     }
 
@@ -646,7 +696,7 @@ class GameApp {
     if (isMatched) {
       if (!this.dwellStartTime) {
         this.dwellStartTime = now;
-        this.sound.playHoldCharge();
+        this.sound.playHoldCharge(0.5);
       }
 
       const elapsed = now - this.dwellStartTime;
@@ -698,14 +748,12 @@ class GameApp {
 
     // 顯示 Bingo 慶祝特效
     this.dom.feedbackOverlay.classList.remove('hidden');
-    this.dom.feedbackOverlay.classList.add('pop-animation');
 
     setTimeout(() => {
       this.dom.feedbackOverlay.classList.add('hidden');
-      this.dom.feedbackOverlay.classList.remove('pop-animation');
       // 前進到下一題
       this.loadQuestion(this.currentIndex + 1);
-    }, 650);
+    }, 550);
   }
 
   /**
@@ -753,7 +801,7 @@ class GameApp {
 
     // 依通關耗時由快到慢排序 (毫秒越小越前)
     records.sort((a, b) => a.timeMs - b.timeMs);
-    records = records.slice(0, 10); // 取前 10 名
+    records = records.slice(0, 10);
 
     localStorage.setItem(key, JSON.stringify(records));
 
@@ -836,13 +884,13 @@ class GameApp {
             sentence: 'Do you like apples?',
             actionZh: '你喜歡蘋果嗎？',
             targetGesture: 'LEFT_OPEN',
-            ruleHint: '喜歡 ➔ Yes (左邊張手 🖐️，右邊握拳 ✊)'
+            ruleHint: '喜歡 ➔ Yes (左邊張手 🖐️)'
           },
           {
             sentence: 'Is it cold outside?',
             actionZh: '外面天氣冷嗎？',
             targetGesture: 'RIGHT_OPEN',
-            ruleHint: '不冷 ➔ No (左邊握拳 ✊，右邊張手 🖐️)'
+            ruleHint: '不冷 ➔ No (右邊張手 🖐️)'
           },
           {
             sentence: 'Are we good friends?',
@@ -879,11 +927,11 @@ class GameApp {
       row.className = 'custom-question-row';
       row.innerHTML = `
         <div class="row-num">#${index + 1}</div>
-        <input type="text" class="custom-sentence-input" placeholder="英文題目 (例如: Do you like apples?)" value="${this.escapeHtml(item.sentence)}">
-        <input type="text" class="custom-zh-input" placeholder="中文釋義 (例如: 你喜歡蘋果嗎？)" value="${this.escapeHtml(item.actionZh || '')}">
+        <input type="text" class="custom-sentence-input" placeholder="英文題目" value="${this.escapeHtml(item.sentence)}">
+        <input type="text" class="custom-zh-input" placeholder="中文釋義" value="${this.escapeHtml(item.actionZh || '')}">
         <select class="custom-target-select">
-          <option value="LEFT_OPEN" ${item.targetGesture === 'LEFT_OPEN' ? 'selected' : ''}>左張右握 (左選區)</option>
-          <option value="RIGHT_OPEN" ${item.targetGesture === 'RIGHT_OPEN' ? 'selected' : ''}>左握右張 (右選區)</option>
+          <option value="LEFT_OPEN" ${item.targetGesture === 'LEFT_OPEN' ? 'selected' : ''}>左邊張手 (左選區)</option>
+          <option value="RIGHT_OPEN" ${item.targetGesture === 'RIGHT_OPEN' ? 'selected' : ''}>右邊張手 (右選區)</option>
           <option value="BOTH_OPEN" ${item.targetGesture === 'BOTH_OPEN' ? 'selected' : ''}>雙手張開 (雙人默契)</option>
         </select>
         <button class="btn-delete-row" title="刪除此題">🗑️</button>
@@ -931,8 +979,8 @@ class GameApp {
           actionZh: zh,
           targetGesture: target,
           ruleHint: target === 'LEFT_OPEN' 
-            ? `${leftLabel} ➔ 左邊張手 🖐️，右邊握拳 ✊` 
-            : (target === 'RIGHT_OPEN' ? `${rightLabel} ➔ 左邊握拳 ✊，右邊張手 🖐️` : '雙人都要張手 🖐️ + 🖐️')
+            ? `${leftLabel} ➔ 左邊張手 🖐️` 
+            : (target === 'RIGHT_OPEN' ? `${rightLabel} ➔ 右邊張手 🖐️` : '雙人都要張手 🖐️ + 🖐️')
         });
       }
     });

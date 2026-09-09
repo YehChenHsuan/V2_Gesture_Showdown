@@ -28,11 +28,6 @@ class GestureEngine {
     this.camera = null;
     this.stream = null;
     this.mirrorMode = true; // 視訊鏡像投影
-
-    // 手指關節點常數
-    this.FINGER_TIPS = [4, 8, 12, 16, 20];
-    this.FINGER_PIPS = [2, 6, 10, 14, 18];
-    this.FINGER_MCPS = [1, 5, 9, 13, 17];
   }
 
   /**
@@ -50,11 +45,12 @@ class GestureEngine {
         }
       });
 
+      // 設置門檻 0.5，大幅提升各類光線環境與小學生手掌的捕捉率
       this.hands.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.6
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
       });
 
       this.hands.onResults((results) => this.processResults(results));
@@ -181,9 +177,7 @@ class GestureEngine {
       for (let i = 0; i < results.multiHandLandmarks.length; i++) {
         const landmarks = results.multiHandLandmarks[i];
         
-        // 取得手掌中心（以 MCP 9 與 Wrist 0 為代表）
-        // 由於我們進行了鏡像投影 (Mirror)，使用者鏡頭前在右邊看到自己在畫面右側
-        // 原始 landmarks.x：0 在視訊左側，1 在視訊右側
+        // 取得手掌中心（以 MCP 9 為代表）
         // 鏡像後的畫面 X 座標為：(1 - landmarks.x)
         const mirrorX = 1.0 - landmarks[9].x;
         const screenY = landmarks[9].y;
@@ -227,7 +221,7 @@ class GestureEngine {
 
   /**
    * 手勢分類演算法：Open Palm 🖐️ vs Fist ✊
-   * 根據 21 點骨架計算五指伸展程度
+   * 根據 21 點骨架計算手指伸展程度，特別寬容小學生手型
    */
   classifyGesture(landmarks) {
     const wrist = landmarks[0];
@@ -246,35 +240,35 @@ class GestureEngine {
       const distPipWrist = this.euclideanDist(landmarks[f.pip], wrist);
       const distMcpWrist = this.euclideanDist(landmarks[f.mcp], wrist);
 
-      // 當指尖離手腕顯著大於關節離手腕時，判定手指為伸直 (Extended)
-      if (distTipWrist > distPipWrist * 1.15 && distTipWrist > distMcpWrist * 1.3) {
+      // 當指尖離手腕大於 PIP 關節時，判定為伸展
+      if (distTipWrist > distPipWrist * 1.08 || distTipWrist > distMcpWrist * 1.22) {
         openCount++;
       }
     }
 
     // 2. 大拇指 (Thumb: 4)
-    // 比較 tip(4) 到 小指 MCP(17) 的距離，與 ip(3) 到 17 的距離
-    const distThumbTipPinky = this.euclideanDist(landmarks[4], landmarks[17]);
-    const distThumbIpPinky = this.euclideanDist(landmarks[3], landmarks[17]);
-    const distThumbWrist = this.euclideanDist(landmarks[4], wrist);
+    const distThumbTipWrist = this.euclideanDist(landmarks[4], wrist);
+    const distThumbIpWrist = this.euclideanDist(landmarks[3], wrist);
     const distThumbMcpWrist = this.euclideanDist(landmarks[2], wrist);
 
-    if (distThumbTipPinky > distThumbIpPinky * 1.12 && distThumbWrist > distThumbMcpWrist * 1.1) {
+    if (distThumbTipWrist > distThumbIpWrist * 1.05 || distThumbTipWrist > distThumbMcpWrist * 1.15) {
       openCount++;
     }
 
-    // 3. 判定手勢
+    // 3. 判定手勢：
+    // 張手比五：伸展手指數 >= 3（給予小學生手指靈活度充分寬容）
+    // 握拳：伸展手指數 <= 1
     let gesture = 'UNKNOWN';
     let confidence = 0.5;
 
-    if (openCount >= 4) {
+    if (openCount >= 3) {
       gesture = 'OPEN'; // 🖐️ 張開手掌比五
-      confidence = openCount === 5 ? 0.98 : 0.85;
+      confidence = openCount >= 4 ? 0.95 : 0.85;
     } else if (openCount <= 1) {
       gesture = 'FIST'; // ✊ 握拳
-      confidence = openCount === 0 ? 0.98 : 0.85;
+      confidence = openCount === 0 ? 0.95 : 0.82;
     } else {
-      gesture = 'UNKNOWN'; // 過渡中（如伸出兩指或三指）
+      gesture = 'UNKNOWN'; // 2 指等過渡狀態
       confidence = 0.4;
     }
 
@@ -282,7 +276,7 @@ class GestureEngine {
   }
 
   /**
-   * 計算 2D/3D 歐式距離
+   * 計算歐式距離
    */
   euclideanDist(p1, p2) {
     const dx = p1.x - p2.x;
@@ -292,50 +286,47 @@ class GestureEngine {
   }
 
   /**
-   * 繪製中央科技分割線與左/右半區標示
+   * 繪製中央科技分割線
    */
   drawBoundaryOverlay(w, h) {
     const ctx = this.ctx;
     const midX = w / 2;
 
-    // 中央分割線 (亮麗青藍光澤)
     ctx.save();
     ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.setLineDash([12, 8]);
     ctx.beginPath();
     ctx.moveTo(midX, 0);
     ctx.lineTo(midX, h);
     ctx.stroke();
 
-    // 中央分隔光暈柱
-    const grad = ctx.createLinearGradient(midX - 20, 0, midX + 20, 0);
+    // 分隔光暈柱
+    const grad = ctx.createLinearGradient(midX - 24, 0, midX + 24, 0);
     grad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-    grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.25)');
+    grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.28)');
     grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
     ctx.fillStyle = grad;
-    ctx.fillRect(midX - 20, 0, 40, h);
+    ctx.fillRect(midX - 24, 0, 48, h);
 
     ctx.restore();
   }
 
   /**
-   * 繪製可愛骨架光點與手勢氣泡
+   * 繪製手部骨架與手勢標籤
    */
   drawHandSkeleton(landmarks, gestureInfo, mirrorX, screenY, w, h) {
     const ctx = this.ctx;
     const pixelX = mirrorX * w;
     const pixelY = screenY * h;
 
-    // 依手勢決定主題色
     const isFive = gestureInfo.gesture === 'OPEN';
     const isFist = gestureInfo.gesture === 'FIST';
     const themeColor = isFive ? '#22c55e' : (isFist ? '#f59e0b' : '#94a3b8');
-    const glowColor = isFive ? 'rgba(34, 197, 94, 0.4)' : (isFist ? 'rgba(245, 158, 11, 0.4)' : 'rgba(148, 163, 184, 0.3)');
 
     ctx.save();
 
-    // 繪製手部 21 個骨架點（已轉換為鏡像座標）
+    // 繪製骨架點
     for (let i = 0; i < landmarks.length; i++) {
       const ptX = (1.0 - landmarks[i].x) * w;
       const ptY = landmarks[i].y * h;
@@ -343,26 +334,24 @@ class GestureEngine {
       ctx.beginPath();
       ctx.arc(ptX, ptY, 4, 0, Math.PI * 2);
       ctx.fillStyle = themeColor;
-      ctx.shadowColor = themeColor;
-      ctx.shadowBlur = 8;
       ctx.fill();
     }
 
-    // 在手掌上方繪製可愛手勢徽章
-    const badgeY = Math.max(50, pixelY - 80);
+    // 在手掌上方繪製手勢徽章
+    const badgeY = Math.max(50, pixelY - 75);
     ctx.beginPath();
-    ctx.arc(pixelX, badgeY, 34, 0, Math.PI * 2);
+    ctx.arc(pixelX, badgeY, 32, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 12;
     ctx.fill();
     ctx.lineWidth = 4;
     ctx.strokeStyle = themeColor;
     ctx.stroke();
 
-    // 繪製 Emoji 與文字
+    // 繪製 Emoji
     ctx.shadowBlur = 0;
-    ctx.font = '28px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.font = '26px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -377,14 +366,13 @@ class GestureEngine {
     }
     ctx.fillText(emoji, pixelX, badgeY - 2);
 
-    // 手勢名稱標籤
-    ctx.font = 'bold 13px "Outfit", "Noto Sans TC", sans-serif';
+    // 文字
+    ctx.font = 'bold 12px "Outfit", sans-serif';
     ctx.fillStyle = themeColor;
-    ctx.fillText(text, pixelX, badgeY + 48);
+    ctx.fillText(text, pixelX, badgeY + 44);
 
     ctx.restore();
   }
 }
 
-// 匯出全域變數供遊戲邏輯使用
 window.GestureEngine = GestureEngine;
