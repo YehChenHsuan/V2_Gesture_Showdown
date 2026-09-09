@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gesture Duo: Team Challenge - ESL 雙人體感手勢默契闖關</title>
+  <meta name="description" content="ESL Interactive Web Game: Cooperate with your partner using AI webcam hand gestures to master daily routines and pronouns!">
+  
+  <!-- Favicon & Stylesheet -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤝</text></svg>">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- MediaPipe Hands & Camera Utils CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- =====================================================================
+       首頁畫面 (Screen: Home)
+       ===================================================================== -->
+  <main id="screen-home" class="home-container">
+    <!-- 頂部 Hero 卡片 -->
+    <header class="home-hero">
+      <div class="hero-img-wrap">
+        <img src="assets/hero_art.webp" alt="Gesture Duo Team Illustration" loading="eager">
+      </div>
+      <div class="hero-info">
+        <span class="hero-tag">🌟 AI 視訊體感合作闖關</span>
+        <h1 class="hero-title">Gesture Duo: Team Challenge</h1>
+        <p class="hero-subtitle">手勢默契大作戰 ‧ 雙人合作闖關賽</p>
+        <div class="hero-instruction-box">
+          👉 <strong>玩法說明：</strong><br>
+          • <strong>雙人合作同機：</strong> 兩位小朋友都伸出<strong>慣用右手</strong>，站在左邊的小朋友出在左半區，站在右邊的小朋友出在右半區！合力比出正確張手 🖐️ 與握拳 ✊！<br>
+          • <strong>單人練習：</strong> 一位小朋友伸出左右手，左手在左區、右手在右區。<br>
+          • <strong>備援操作：</strong> 無鏡頭亦可使用鍵盤 <code>A</code> (左區) / <code>D</code> (右區) / <code>W</code> (雙張手) 點擊暢玩！
+        </div>
+      </div>
+    </header>
+
+    <!-- 練習模式選擇區 -->
+    <h2 class="section-heading">🎯 選擇練習主題 (Select Practice Mode)</h2>
+    <div id="mode-cards-container" class="mode-cards-grid">
+      <!-- 由 game.js 動態渲染 -->
+    </div>
+
+    <!-- 闖關題數選擇 -->
+    <div class="count-setting-bar">
+      <span class="count-setting-label">⚡ 選擇挑戰關卡題數：</span>
+      <div class="count-options">
+        <button class="btn-count-opt active" data-count="5">5 題極速賽</button>
+        <button class="btn-count-opt" data-count="10">10 題標準賽</button>
+        <button class="btn-count-opt" data-count="15">15 題大師賽</button>
+        <button class="btn-count-opt" data-count="all">全部題庫挑戰</button>
+      </div>
+    </div>
+
+    <!-- 底部操作列 -->
+    <div class="home-action-row">
+      <button id="btn-start-game" class="btn-start-primary">
+        <span>🚀</span> 開始合作闖關 (Start Challenge)
+      </button>
+      <button id="btn-open-leaderboard" class="btn-secondary">
+        <span>🏆</span> 合作排行榜
+      </button>
+      <button id="btn-open-custom-editor" class="btn-secondary">
+        <span>✏️</span> 教師自訂題庫
+      </button>
+    </div>
+  </main>
+
+  <!-- =====================================================================
+       遊戲舞台畫面 (Screen: Game)
+       ===================================================================== -->
+  <section id="screen-game" class="game-container hidden">
+    <!-- 頂部題目與計時橫幅 -->
+    <header class="game-top-bar">
+      <div class="top-left-status">
+        <div id="progress-badge" class="progress-pill">第 1 / 5 關</div>
+        <div class="stopwatch-box">
+          <span>⏱️</span>
+          <span id="stopwatch-text">00:00.0</span>
+        </div>
+      </div>
+
+      <!-- 題目核心卡 -->
+      <div class="question-center-card">
+        <div class="question-img-frame">
+          <img id="question-image" src="" alt="Flashcard visual">
+          <div id="question-image-placeholder" class="question-placeholder-text">ESL</div>
+        </div>
+        <div class="question-text-group">
+          <div id="question-sentence" class="question-sentence-text">I go home.</div>
+          <div class="question-sub-info">
+            <span id="question-zh" class="question-zh-text">(回家)</span>
+            <span id="rule-hint-text" class="rule-hint-text">左邊張手 🖐️，右邊握拳 ✊</span>
+          </div>
+        </div>
+        <button id="btn-speak-question" class="btn-audio-speak" title="點擊朗讀題目聲音 (Space)">🔊</button>
+      </div>
+
+      <button id="btn-exit-game" class="btn-exit-small">✕ 離開</button>
+    </header>
+
+    <!-- 中央視訊與體感投影舞台 -->
+    <div class="game-stage">
+      <!-- 原生視訊 (隱藏) -->
+      <video id="webcam-video" playsinline autoplay muted></video>
+
+      <!-- 鏡像投影畫布 (渲染骨架與手勢標籤) -->
+      <canvas id="gesture-canvas"></canvas>
+
+      <!-- 左右分區懸浮大標籤 -->
+      <div class="stage-zone-header">
+        <div id="zone-label-left" class="zone-title-tag left-side">I</div>
+        <div id="zone-label-right" class="zone-title-tag right-side">You</div>
+      </div>
+
+      <!-- 蓄力環 (Hold Confirmation Ring) -->
+      <div id="dwell-container" class="dwell-container">
+        <svg class="dwell-svg" viewBox="0 0 70 70">
+          <circle class="dwell-ring-bg" cx="35" cy="35" r="30"></circle>
+          <circle id="dwell-ring-progress" class="dwell-ring-progress" cx="35" cy="35" r="30"></circle>
+        </svg>
+        <div class="dwell-text">HOLD 手勢蓄力中!</div>
+      </div>
+
+      <!-- 正解過關浮層 (Bingo) -->
+      <div id="feedback-overlay" class="feedback-overlay hidden">
+        <div class="feedback-banner">
+          <span>✨</span> BINGO! GREAT TEAMWORK! <span>🎉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部手勢狀態與備援控制列 -->
+    <footer class="game-bottom-bar">
+      <!-- 左區狀態 -->
+      <div class="player-status-group">
+        <span id="status-badge-left" class="status-badge waiting">⏳ 等待出手</span>
+        <button id="btn-manual-left" class="btn-manual-override">左區: ✊ 握拳 (A)</button>
+      </div>
+
+      <!-- 中央鏡頭狀態 -->
+      <div id="camera-status-text" class="camera-status-indicator">
+        📸 視訊鏡頭偵測中... (支援鏡像投影)
+      </div>
+
+      <!-- 右區狀態 -->
+      <div class="player-status-group">
+        <button id="btn-manual-right" class="btn-manual-override">右區: ✊ 握拳 (D)</button>
+        <span id="status-badge-right" class="status-badge waiting">⏳ 等待出手</span>
+      </div>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       勝利結算彈窗 (Modal: Victory)
+       ===================================================================== -->
+  <div id="screen-victory-modal" class="modal-backdrop hidden">
+    <div class="modal-card victory-card">
+      <div class="trophy-icon">🏆</div>
+      <h2 class="victory-title">CHALLENGE CLEARED!</h2>
+      <p style="color: #cbd5e1; font-size: 1.1rem;">太厲害了！雙人默契完美通關！</p>
+
+      <div class="time-record-box">
+        <div class="time-record-label">⏱️ 合作通關總時間 (Total Time)</div>
+        <div id="final-time-display" class="time-record-value">00:15.8</div>
+      </div>
+
+      <div style="width: 100%;">
+        <input type="text" id="team-name-input" class="input-team-name" placeholder="輸入你們的隊伍名稱 (例如: Leo & Amy)" maxlength="20">
+      </div>
+
+      <div class="modal-btn-row">
+        <button id="btn-save-score" class="btn-start-primary" style="flex: 1; padding: 14px 20px;">登錄排行榜 🌟</button>
+        <button id="btn-play-again" class="btn-secondary" style="flex: 1;">再玩一次 🔄</button>
+        <button id="btn-back-home" class="btn-secondary" style="flex: 1;">回主選單 🏠</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       排行榜彈窗 (Modal: Leaderboard)
+       ===================================================================== -->
+  <div id="screen-leaderboard-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🏆 雙人默契榮譽榜 (Leaderboard)</h2>
+        <button id="btn-close-leaderboard" class="btn-close-modal">✕</button>
+      </div>
+      <div style="font-size: 0.9rem; color: #94a3b8; margin-top: -10px;">
+        耗時越短排名越前，展示各模式最佳通關紀錄
+      </div>
+
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>名次</th>
+            <th>隊伍名稱</th>
+            <th>通關耗時</th>
+            <th>挑戰日期</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <!-- 由 game.js 動態渲染 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       教師自訂題庫彈窗 (Modal: Custom Editor)
+       ===================================================================== -->
+  <div id="screen-custom-modal" class="modal-backdrop hidden">
+    <div class="modal-card custom-editor-card">
+      <div class="modal-header">
+        <h2 class="modal-title">✏️ 教師自訂題庫設定 (Teacher's Editor)</h2>
+        <button id="btn-close-custom-modal" class="btn-close-modal">✕</button>
+      </div>
+
+      <div class="custom-labels-group">
+        <div class="input-group">
+          <label>左側區域標籤 (Left Zone Label):</label>
+          <input type="text" id="custom-left-label" class="custom-input" placeholder="例如: Yes 或 Present">
+        </div>
+        <div class="input-group">
+          <label>右側區域標籤 (Right Zone Label):</label>
+          <input type="text" id="custom-right-label" class="custom-input" placeholder="例如: No 或 Past">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <label style="font-weight: 700; color: #cbd5e1;">題目與正確手勢列表：</label>
+        <button id="btn-add-custom-question" class="btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;">+ 新增一題</button>
+      </div>
+
+      <div id="custom-questions-list" class="custom-questions-list">
+        <!-- 由 game.js 動態渲染 -->
+      </div>
+
+      <div class="modal-btn-row" style="margin-top: 14px;">
+        <button id="btn-save-custom-config" class="btn-start-primary" style="flex: 2; padding: 12px 20px;">💾 儲存自訂題庫</button>
+        <button id="btn-reset-custom-config" class="btn-secondary" style="flex: 1; color: #f87171;">重設範例</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 程式模組載入 -->
+  <script src="sound.js"></script>
+  <script src="gesture_engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
