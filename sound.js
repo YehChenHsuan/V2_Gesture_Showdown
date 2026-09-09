@@ -3,7 +3,7 @@
  * 包含：
  * 1. Web Audio API 即時合成音效（手勢充能音、正解叮咚、通關大號角）
  * 2. 瀏覽器 Web Speech API (TTS) 題目英文道地發音朗讀
- * 3. 雙類別別名 (GameSound & ShowdownSoundSystem) 保證向後相容
+ * 3. 雙類別別名 (GameSound & ShowdownSoundSystem) 並涵蓋所有相容方法別名
  */
 
 class GameSound {
@@ -12,7 +12,6 @@ class GameSound {
     this.isMuted = false;
     this.speechSynth = window.speechSynthesis || null;
     this.preferredVoice = null;
-    this.chargeOsc = null;
 
     if (this.speechSynth) {
       this.initVoices();
@@ -44,6 +43,14 @@ class GameSound {
       voices[0];
   }
 
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    if (this.isMuted && this.speechSynth) {
+      this.speechSynth.cancel();
+    }
+    return this.isMuted;
+  }
+
   // 播放點擊音效
   playClick() {
     this.initAudioContext();
@@ -63,9 +70,7 @@ class GameSound {
 
       osc.start();
       osc.stop(this.audioCtx.currentTime + 0.08);
-    } catch (e) {
-      // 靜默處理
-    }
+    } catch (e) {}
   }
 
   // 播放蓄力充能微音
@@ -87,9 +92,11 @@ class GameSound {
 
       osc.start();
       osc.stop(this.audioCtx.currentTime + 0.06);
-    } catch (e) {
-      // 靜默處理
-    }
+    } catch (e) {}
+  }
+
+  playChargeTick(progress = 0.5) {
+    this.playHoldCharge(progress);
   }
 
   // 答對過關音效 (清脆二段叮咚鈴聲)
@@ -99,7 +106,6 @@ class GameSound {
     try {
       const now = this.audioCtx.currentTime;
 
-      // 第一音：高音 E5 (659Hz)
       const osc1 = this.audioCtx.createOscillator();
       const gain1 = this.audioCtx.createGain();
       osc1.type = 'sine';
@@ -111,7 +117,6 @@ class GameSound {
       osc1.start(now);
       osc1.stop(now + 0.25);
 
-      // 第二音：超高音 B5 (987Hz)
       const osc2 = this.audioCtx.createOscillator();
       const gain2 = this.audioCtx.createGain();
       osc2.type = 'sine';
@@ -122,9 +127,11 @@ class GameSound {
       gain2.connect(this.audioCtx.destination);
       osc2.start(now + 0.1);
       osc2.stop(now + 0.45);
-    } catch (e) {
-      // 靜默處理
-    }
+    } catch (e) {}
+  }
+
+  playSuccessSound() {
+    this.playCorrect();
   }
 
   // 勝利通關大號角
@@ -132,7 +139,7 @@ class GameSound {
     this.initAudioContext();
     if (this.isMuted || !this.audioCtx) return;
     try {
-      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.5];
       const now = this.audioCtx.currentTime;
 
       notes.forEach((freq, i) => {
@@ -150,16 +157,41 @@ class GameSound {
         osc.start(now + i * 0.12);
         osc.stop(now + i * 0.12 + 0.4);
       });
-    } catch (e) {
-      // 靜默處理
-    }
+    } catch (e) {}
+  }
+
+  playVictoryFanfare() {
+    this.playVictory();
+  }
+
+  playWrong() {
+    this.initAudioContext();
+    if (this.isMuted || !this.audioCtx) return;
+    try {
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.linearRampToValueAtTime(120, now + 0.2);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) {}
+  }
+
+  playWrongSound() {
+    this.playWrong();
   }
 
   // 題目美語 TTS 發音
   speak(text, options = {}) {
     if (this.isMuted || !this.speechSynth || !text) return;
     try {
-      this.speechSynth.cancel(); // 停止先前的朗讀
+      this.speechSynth.cancel();
       const cleanText = text.replace(/[\(\)（）\/\.]/g, ' ').trim();
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'en-US';
