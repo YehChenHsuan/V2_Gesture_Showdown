@@ -187,29 +187,60 @@ class GameSound {
     this.playWrong();
   }
 
-  // 題目美語 TTS 發音
+  // 題目美語語音播放 (使用 Google Cloud Neural2 最高級預錄音檔)
   speak(text, options = {}) {
-    if (this.isMuted || !this.speechSynth || !text) return;
+    if (this.isMuted || !text) return;
     try {
-      this.speechSynth.cancel();
-      const cleanText = text.replace(/[\(\)（）\/\.]/g, ' ').trim();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'en-US';
-      utterance.rate = options.rate || 0.9;
-      utterance.pitch = options.pitch || 1.05;
+      const audioMap = {
+        "I go home.": "audios/questions/m1_i_go_home.mp3",
+        "I do homework.": "audios/questions/m1_i_do_homework.mp3",
+        "I eat dinner.": "audios/questions/m1_i_eat_dinner.mp3",
+        "I take a bath.": "audios/questions/m1_i_take_a_bath.mp3",
+        "I go to bed.": "audios/questions/m1_i_go_to_bed.mp3",
+        "I go to sleep.": "audios/questions/m1_i_go_to_sleep.mp3",
+        "You go home.": "audios/questions/m1_you_go_home.mp3",
+        "You do homework.": "audios/questions/m1_you_do_homework.mp3",
+        "You eat dinner.": "audios/questions/m1_you_eat_dinner.mp3",
+        "You take a bath.": "audios/questions/m1_you_take_a_bath.mp3",
+        "You go to bed.": "audios/questions/m1_you_go_to_bed.mp3",
+        "You go to sleep.": "audios/questions/m1_you_go_to_sleep.mp3",
+        "We go home.": "audios/questions/m1_we_go_home.mp3",
+        "We do homework.": "audios/questions/m1_we_do_homework.mp3",
+        "We eat dinner.": "audios/questions/m1_we_eat_dinner.mp3",
+        "We take a bath.": "audios/questions/m1_we_take_a_bath.mp3",
+        "We go to bed.": "audios/questions/m1_we_go_to_bed.mp3",
+        "We go to sleep.": "audios/questions/m1_we_go_to_sleep.mp3",
+        "wake up": "audios/questions/m2_wake_up.mp3",
+        "eat breakfast": "audios/questions/m2_eat_breakfast.mp3",
+        "go to school": "audios/questions/m2_go_to_school.mp3",
+        "eat lunch": "audios/questions/m2_eat_lunch.mp3",
+        "do homework": "audios/questions/m2_do_homework.mp3",
+        "eat dinner": "audios/questions/m2_eat_dinner.mp3",
+        "take a bath": "audios/questions/m2_take_a_bath.mp3",
+        "go to bed": "audios/questions/m2_go_to_bed.mp3",
+        "go to sleep": "audios/questions/m2_go_to_sleep.mp3"
+      };
 
-      if (!this.preferredVoice) this.initVoices();
-      if (this.preferredVoice) utterance.voice = this.preferredVoice;
+      const cleanText = text.trim();
+      const audioPath = audioMap[cleanText] || audioMap[cleanText.replace(/\./g, '')];
 
-      this.speechSynth.speak(utterance);
+      if (audioPath) {
+        if (this.currentVoiceAudio) {
+          this.currentVoiceAudio.pause();
+          this.currentVoiceAudio.currentTime = 0;
+        }
+        const audio = new Audio(audioPath);
+        this.currentVoiceAudio = audio;
+        audio.play().catch(() => {});
+      }
     } catch (e) {
-      console.warn('[GameSound] TTS 朗讀失敗:', e);
+      console.warn('[GameSound] 音檔播放失敗:', e);
     }
   }
 
   speakEnglish(text, cb) {
     this.speak(text);
-    if (cb) setTimeout(cb, 500);
+    if (cb) setTimeout(cb, 600);
   }
 }
 
